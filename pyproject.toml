@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bild-python"
+version = "0.1.0"
+description = "Python SDK for the Bild External API"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "AJ + Gilbert" }]
+license = { text = "MIT" }
+dependencies = ["requests>=2.31.0"]
+
+[project.urls]
+Homepage = "https://github.com/AJFrio/Bild-Python"
+Documentation = "https://bildexternalapi.portledocs.com/"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bild*"]

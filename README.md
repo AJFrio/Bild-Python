@@ -1,51 +1,65 @@
-# Bild API Client
+# bild-python
 
-##WORK IN PROGRESS
+Clean Python SDK for the Bild External API.
 
-## Introduction
-The `Bild` class is a client for interacting with the Bild API. It allows users to manage projects, users, and files within the Bild platform. The client can be used to retrieve information, add users, and generate STL files from project files.
+## Install
 
-## Installation
-1. Clone the repository.
-2. Ensure you have Python installed (version 3.6 or higher).
-3. Install the required packages using pip:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-To use the `Bild` class, you need to instantiate it with a valid API token. You can either set the `BILD_API_KEY` environment variable or pass the token directly to the constructor.
-
-Example:
-```python
-from bild import Bild
-
-# Using environment variable
-client = Bild()
-
-# Passing token directly
-client = Bild(token='your_api_token')
+```bash
+pip install -e .
 ```
 
-## Configuration
-Set the `BILD_API_KEY` in your environment variables or pass it directly to the `Bild` class constructor.
+## Quick start
 
-## Methods
-- `set_branch(branch_id)`: Set the branch ID for operations.
-- `set_project(project_id)`: Set the project ID for operations.
-- `set_file(file_id)`: Set the file ID for operations.
-- `get_all_users()`: Retrieve all users.
-- `add_users_to_bild(emails, role, projects)`: Add users to Bild with specified roles and projects.
-- `get_all_projects()`: Retrieve all projects.
-- `get_all_files(project_id)`: Retrieve all files for a specified project.
-- `get_all_users_in_project(project_id)`: Retrieve all users in a specified project.
-- `generate_stl(project_id, branch_id, file_id)`: Generate an STL file for a specified file.
+```python
+from bild import BildClient
 
-## Error Handling
-The client raises exceptions for authentication errors, missing tokens, and path errors. Ensure you handle these exceptions in your application.
+client = BildClient(token="YOUR_JWT_TOKEN")
 
-## Contributing
-Contributions are welcome! Please fork the repository and submit a pull request.
+projects = client.api.projects.list()
+users = client.api.users.list()
+```
 
-## License
-This project is licensed under the MIT License. 
+You can also use `BILD_API_KEY` environment variable.
+
+## Base URL
+
+Defaults to:
+
+- `https://api.portle.io/api`
+
+Override with:
+
+```python
+client = BildClient(token="...", base_url="https://api.portle.io/api")
+```
+
+## Implemented modules
+
+- `api.users`
+  - `list()`
+  - `add(emails, role="Member", projects=[])`
+- `api.projects`
+  - `list()`
+  - `users(project_id)`
+  - `files(project_id)`
+- `api.files`
+  - `latest_version(project_id, branch_id, file_id)`
+  - `to_stl(project_id, branch_id, file_id, file_version=...)`
+  - `to_step(project_id, branch_id, file_id, file_version=...)`
+- `api.metadata`
+  - `fields()`
+  - `file_metadata(project_id, branch_id, file_id)`
+- `api.search`
+  - `query(payload)`
+
+## Low-level escape hatch
+
+```python
+client.get("projects")
+client.post("some/path", json={"x": 1})
+```
+
+## Notes
+
+This SDK was rebuilt from scratch and focuses on a stable core + easy extension.
+If an endpoint path differs in your tenant/version, use low-level methods and extend resource methods quickly.
