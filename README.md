@@ -54,6 +54,13 @@ client.get("projects")
 client.post("custom/path", json={"x": 1})
 ```
 
+## Smart defaults
+
+For methods that require `branch_id` and/or `file_version`, you can pass `None` and the SDK will auto-resolve:
+
+- default branch: prefers `isMain`/`isDefault`, then `main`/`master`, then first branch
+- file version: resolves from `latestFileVersion`
+
 ## Notes
 
 The SDK is intentionally modular and easy to extend.

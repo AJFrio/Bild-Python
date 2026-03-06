@@ -105,6 +105,45 @@ class BildClient:
     def delete(self, path: str, *, params=None):
         return self.request("DELETE", path, params=params)
 
+    def resolve_branch_id(self, project_id: str, branch_id: str | None = None) -> str:
+        if branch_id:
+            return branch_id
+        branches_payload = self.get(f"projects/{project_id}/branches")
+        branches = _pick_list(branches_payload)
+        if not branches:
+            raise ValueError("No branches found for project and no branch_id provided")
+
+        for b in branches:
+            if not isinstance(b, dict):
+                continue
+            if b.get("isMain") or b.get("isDefault") or b.get("default"):
+                return b.get("id") or b.get("branchId")
+        for b in branches:
+            if isinstance(b, dict) and str(b.get("name", "")).lower() in ("main", "master"):
+                return b.get("id") or b.get("branchId")
+
+        first = branches[0]
+        if isinstance(first, dict):
+            value = first.get("id") or first.get("branchId")
+            if value:
+                return value
+        raise ValueError("Could not determine default branch_id")
+
+    def resolve_file_version(
+        self,
+        project_id: str,
+        branch_id: str,
+        file_id: str,
+        file_version: str | None = None,
+    ) -> str:
+        if file_version:
+            return file_version
+        latest = self.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latestFileVersion")
+        value = _pick_from_response(latest, "fileVersion", "id", "versionId", "latestFileVersion")
+        if value:
+            return str(value)
+        raise ValueError("Could not determine file_version automatically")
+
 
 class _BaseAPI:
     def __init__(self, client: BildClient):
@@ -155,13 +194,25 @@ class FilesAPI(_BaseAPI):
             return self.client.get(f"projects/{project_id}/branches/{branch_id}/files")
         return self.client.get(f"projects/{project_id}/files")
 
-    def get(self, project_id: str, branch_id: str, file_id: str):
+    def get(self, project_id: str, branch_id: str | None, file_id: str):
+        branch_id = self.client.resolve_branch_id(project_id, branch_id)
         return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}")
 
-    def latest_version(self, project_id: str, branch_id: str, file_id: str):
+    def latest_version(self, project_id: str, branch_id: str | None, file_id: str):
+        branch_id = self.client.resolve_branch_id(project_id, branch_id)
         return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latestFileVersion")
 
-    def universal_format(self, project_id: str, branch_id: str, file_id: str, *, file_version: str, output_format: str):
+    def universal_format(
+        self,
+        project_id: str,
+        branch_id: str | None,
+        file_id: str,
+        *,
+        file_version: str | None,
+        output_format: str,
+    ):
+        branch_id = self.client.resolve_branch_id(project_id, branch_id)
+        file_version = self.client.resolve_file_version(project_id, branch_id, file_id, file_version)
         return self.client.post(
             f"projects/{project_id}/branches/{branch_id}/files/{file_id}/universalFormat",
             json={"fileVersion": file_version, "universalFileFormat": output_format},
@@ -287,6 +338,27 @@ class BOMsAPI(_BaseAPI):
 class SearchAPI(_BaseAPI):
     def query(self, payload: dict):
         return self.client.put("search", json=payload)
+
+
+def _pick_from_response(payload: Any, *keys: str):
+    if isinstance(payload, dict):
+        for k in keys:
+            if k in payload and payload[k]:
+                return payload[k]
+        if isinstance(payload.get("data"), dict):
+            return _pick_from_response(payload["data"], *keys)
+    return None
+
+
+def _pick_list(payload: Any):
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        if isinstance(payload.get("data"), list):
+            return payload["data"]
+        if isinstance(payload.get("items"), list):
+            return payload["items"]
+    return []
 
 
 def _safe_json(response: requests.Response):
