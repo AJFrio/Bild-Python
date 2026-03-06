@@ -1,67 +1,142 @@
-# bild-python
+# Bild-Python
 
-Python SDK for the Bild External API.
+Python library for interacting with the Bild External API.
 
-## Install
+> This repo is currently intended to be used directly from source (not from PyPI yet).
+
+## 1) Clone and set up
 
 ```bash
-pip install -e .
+git clone https://github.com/AJFrio/Bild-Python.git
+cd Bild-Python
+python3 -m venv .venv
+source .venv/bin/activate
+pip install requests
 ```
 
-## Quick start
+## 2) Set your API token
+
+```bash
+export BILD_API_KEY="YOUR_JWT_TOKEN"
+```
+
+Or pass token directly in code.
+
+## 3) Basic usage
 
 ```python
 from bild import BildClient
 
-client = BildClient(token="YOUR_JWT_TOKEN")
+client = BildClient()  # uses BILD_API_KEY from env
+# or: client = BildClient(token="YOUR_JWT_TOKEN")
+
 projects = client.api.projects.list()
+print(projects)
+```
+
+---
+
+## Common examples
+
+### List users and projects
+
+```python
+from bild import BildClient
+
+client = BildClient()
+
 users = client.api.users.list()
+projects = client.api.projects.list()
+
+print("Users:", users)
+print("Projects:", projects)
 ```
 
-Or set `BILD_API_KEY`.
-
-## Base URL
-
-Default: `https://api.portle.io/api`
+### Add users to your account
 
 ```python
-client = BildClient(token="...", base_url="https://api.portle.io/api")
+client.api.users.add(
+    emails=["person@example.com"],
+    role="Member",
+    projects=[{"id": "project-id", "projectAccess": "Editor"}]
+)
 ```
 
-## Resource coverage
-
-- `api.users`
-- `api.projects`
-- `api.project_users`
-- `api.branches_commits`
-- `api.files`
-- `api.file_upload`
-- `api.file_checkin_checkout`
-- `api.shared_links`
-- `api.files_move_delete`
-- `api.files_metadata`
-- `api.feedback_items`
-- `api.packages`
-- `api.revisions`
-- `api.approvals`
-- `api.boms`
-- `api.search`
-
-## Escape hatch
+### List files in a project
 
 ```python
-client.get("projects")
-client.post("custom/path", json={"x": 1})
+files = client.api.files.list("project-id")
+print(files)
 ```
 
-## Smart defaults
+### Convert a file to STL (auto-default branch + latest version)
 
-For methods that require `branch_id` and/or `file_version`, you can pass `None` and the SDK will auto-resolve:
+```python
+result = client.api.files.universal_format(
+    project_id="project-id",
+    branch_id=None,           # auto-resolves main/default branch
+    file_id="file-id",
+    file_version=None,        # auto-resolves latest file version
+    output_format="stl"
+)
+print(result)
+```
 
-- default branch: prefers `isMain`/`isDefault`, then `main`/`master`, then first branch
-- file version: resolves from `latestFileVersion`
+### Shared links
 
-## Notes
+```python
+links = client.api.shared_links.list("project-id")
+print(links)
 
-The SDK is intentionally modular and easy to extend.
-If a tenant/version uses slightly different route names, use low-level methods and add/adjust a resource method quickly.
+new_link = client.api.shared_links.create("project-id", {
+    "name": "Review Link",
+    "fileIds": ["file-id"]
+})
+print(new_link)
+```
+
+### Search
+
+```python
+search_result = client.api.search.query({"query": "bolt"})
+print(search_result)
+```
+
+---
+
+## API groups available
+
+- `client.api.users`
+- `client.api.projects`
+- `client.api.project_users`
+- `client.api.branches_commits`
+- `client.api.files`
+- `client.api.file_upload`
+- `client.api.file_checkin_checkout`
+- `client.api.shared_links`
+- `client.api.files_move_delete`
+- `client.api.files_metadata`
+- `client.api.feedback_items`
+- `client.api.packages`
+- `client.api.revisions`
+- `client.api.approvals`
+- `client.api.boms`
+- `client.api.search`
+
+---
+
+## Advanced: custom base URL
+
+```python
+client = BildClient(
+    token="YOUR_JWT_TOKEN",
+    base_url="https://api.portle.io/api"
+)
+```
+
+## Escape hatch for unwrapped endpoints
+
+```python
+raw = client.get("projects")
+print(raw)
+```
