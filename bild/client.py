@@ -8,7 +8,6 @@ import requests
 
 from .errors import BildAPIError, BildAuthError
 
-
 DEFAULT_BASE_URL = "https://api.portle.io/api"
 
 
@@ -16,14 +15,23 @@ DEFAULT_BASE_URL = "https://api.portle.io/api"
 class _Resources:
     users: "UsersAPI"
     projects: "ProjectsAPI"
+    project_users: "ProjectUsersAPI"
+    branches_commits: "BranchesCommitsAPI"
     files: "FilesAPI"
-    metadata: "MetadataAPI"
+    file_upload: "FileUploadAPI"
+    file_checkin_checkout: "FileCheckinCheckoutAPI"
+    shared_links: "SharedLinksAPI"
+    files_move_delete: "FilesMoveDeleteAPI"
+    files_metadata: "FilesMetadataAPI"
+    feedback_items: "FeedbackItemsAPI"
+    packages: "PackagesAPI"
+    revisions: "RevisionsAPI"
+    approvals: "ApprovalsAPI"
+    boms: "BOMsAPI"
     search: "SearchAPI"
 
 
 class BildClient:
-    """SDK client for the Bild External API."""
-
     def __init__(
         self,
         token: str | None = None,
@@ -50,35 +58,39 @@ class BildClient:
         self.api = _Resources(
             users=UsersAPI(self),
             projects=ProjectsAPI(self),
+            project_users=ProjectUsersAPI(self),
+            branches_commits=BranchesCommitsAPI(self),
             files=FilesAPI(self),
-            metadata=MetadataAPI(self),
+            file_upload=FileUploadAPI(self),
+            file_checkin_checkout=FileCheckinCheckoutAPI(self),
+            shared_links=SharedLinksAPI(self),
+            files_move_delete=FilesMoveDeleteAPI(self),
+            files_metadata=FilesMetadataAPI(self),
+            feedback_items=FeedbackItemsAPI(self),
+            packages=PackagesAPI(self),
+            revisions=RevisionsAPI(self),
+            approvals=ApprovalsAPI(self),
+            boms=BOMsAPI(self),
             search=SearchAPI(self),
         )
 
     def request(self, method: str, path: str, *, params=None, json=None) -> Any:
         url = f"{self.base_url}/{path.lstrip('/')}"
         response = self.session.request(
-            method=method.upper(),
-            url=url,
-            params=params,
-            json=json,
-            timeout=self.timeout,
+            method=method.upper(), url=url, params=params, json=json, timeout=self.timeout
         )
-
         if response.status_code in (401, 403):
             raise BildAuthError(
                 "Authentication/authorization failed",
                 status_code=response.status_code,
                 payload=_safe_json(response),
             )
-
         if not response.ok:
             raise BildAPIError(
                 f"API error {response.status_code}",
                 status_code=response.status_code,
                 payload=_safe_json(response),
             )
-
         return _safe_json(response)
 
     def get(self, path: str, *, params=None):
@@ -94,93 +106,185 @@ class BildClient:
         return self.request("DELETE", path, params=params)
 
 
-class UsersAPI:
+class _BaseAPI:
     def __init__(self, client: BildClient):
         self.client = client
 
+
+class UsersAPI(_BaseAPI):
     def list(self):
         return self.client.get("users")
 
     def add(self, emails: list[str], role: str = "Member", projects: list[dict] | None = None):
-        if not emails:
-            raise ValueError("emails cannot be empty")
-        return self.client.put(
-            "users/add",
-            json={"emails": emails, "role": role, "projects": projects or []},
-        )
+        return self.client.put("users/add", json={"emails": emails, "role": role, "projects": projects or []})
 
 
-class ProjectsAPI:
-    def __init__(self, client: BildClient):
-        self.client = client
-
+class ProjectsAPI(_BaseAPI):
     def list(self):
         return self.client.get("projects")
 
-    def users(self, project_id: str):
+
+class ProjectUsersAPI(_BaseAPI):
+    def list(self, project_id: str):
         return self.client.get(f"projects/{project_id}/users")
 
-    def files(self, project_id: str):
+    def add(self, project_id: str, payload: dict):
+        return self.client.post(f"projects/{project_id}/users", json=payload)
+
+    def update(self, project_id: str, user_id: str, payload: dict):
+        return self.client.put(f"projects/{project_id}/users/{user_id}", json=payload)
+
+
+class BranchesCommitsAPI(_BaseAPI):
+    def list_branches(self, project_id: str):
+        return self.client.get(f"projects/{project_id}/branches")
+
+    def branch(self, project_id: str, branch_id: str):
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}")
+
+    def commits(self, project_id: str, branch_id: str):
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/commits")
+
+    def commit(self, project_id: str, branch_id: str, commit_id: str):
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/commits/{commit_id}")
+
+
+class FilesAPI(_BaseAPI):
+    def list(self, project_id: str, branch_id: str | None = None):
+        if branch_id:
+            return self.client.get(f"projects/{project_id}/branches/{branch_id}/files")
         return self.client.get(f"projects/{project_id}/files")
 
-
-class FilesAPI:
-    def __init__(self, client: BildClient):
-        self.client = client
+    def get(self, project_id: str, branch_id: str, file_id: str):
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}")
 
     def latest_version(self, project_id: str, branch_id: str, file_id: str):
-        return self.client.get(
-            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latestFileVersion"
-        )
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latestFileVersion")
 
-    def universal_format(
-        self,
-        project_id: str,
-        branch_id: str,
-        file_id: str,
-        *,
-        file_version: str,
-        output_format: str,
-    ):
+    def universal_format(self, project_id: str, branch_id: str, file_id: str, *, file_version: str, output_format: str):
         return self.client.post(
             f"projects/{project_id}/branches/{branch_id}/files/{file_id}/universalFormat",
             json={"fileVersion": file_version, "universalFileFormat": output_format},
         )
 
-    def to_stl(self, project_id: str, branch_id: str, file_id: str, *, file_version: str):
-        return self.universal_format(
-            project_id,
-            branch_id,
-            file_id,
-            file_version=file_version,
-            output_format="stl",
-        )
 
-    def to_step(self, project_id: str, branch_id: str, file_id: str, *, file_version: str):
-        return self.universal_format(
-            project_id,
-            branch_id,
-            file_id,
-            file_version=file_version,
-            output_format="step",
-        )
+class FileUploadAPI(_BaseAPI):
+    def init_upload(self, project_id: str, branch_id: str, payload: dict):
+        return self.client.put(f"projects/{project_id}/branches/{branch_id}/fileUpload", json=payload)
+
+    def complete_upload(self, project_id: str, branch_id: str, payload: dict):
+        return self.client.post(f"projects/{project_id}/branches/{branch_id}/fileUpload", json=payload)
 
 
-class MetadataAPI:
-    def __init__(self, client: BildClient):
-        self.client = client
+class FileCheckinCheckoutAPI(_BaseAPI):
+    def checkout(self, project_id: str, branch_id: str, file_id: str, payload: dict | None = None):
+        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/checkout", json=payload or {})
 
+    def checkin(self, project_id: str, branch_id: str, file_id: str, payload: dict | None = None):
+        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/checkin", json=payload or {})
+
+    def discard_checkout(self, project_id: str, branch_id: str, file_id: str, payload: dict | None = None):
+        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/discardCheckout", json=payload or {})
+
+    def create_version(self, project_id: str, branch_id: str, file_id: str, payload: dict):
+        return self.client.post(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions", json=payload)
+
+
+class SharedLinksAPI(_BaseAPI):
+    def list(self, project_id: str):
+        return self.client.get(f"projects/{project_id}/sharedLinks")
+
+    def get(self, project_id: str, link_id: str):
+        return self.client.get(f"projects/{project_id}/sharedLinks/{link_id}")
+
+    def create(self, project_id: str, payload: dict):
+        return self.client.post(f"projects/{project_id}/sharedLinks", json=payload)
+
+    def update(self, project_id: str, link_id: str, payload: dict):
+        return self.client.put(f"projects/{project_id}/sharedLinks/{link_id}", json=payload)
+
+
+class FilesMoveDeleteAPI(_BaseAPI):
+    def move(self, project_id: str, branch_id: str, payload: dict):
+        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/move", json=payload)
+
+    def delete_many(self, project_id: str, branch_id: str, payload: dict):
+        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/delete", json=payload)
+
+
+class FilesMetadataAPI(_BaseAPI):
     def fields(self):
         return self.client.get("metadataFields")
 
     def file_metadata(self, project_id: str, branch_id: str, file_id: str):
         return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/metadata")
 
+    def update_file_metadata(self, project_id: str, branch_id: str, file_id: str, payload: dict):
+        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/metadata", json=payload)
 
-class SearchAPI:
-    def __init__(self, client: BildClient):
-        self.client = client
 
+class FeedbackItemsAPI(_BaseAPI):
+    def list(self, project_id: str):
+        return self.client.get(f"projects/{project_id}/feedbackItems")
+
+    def get(self, project_id: str, item_id: str):
+        return self.client.get(f"projects/{project_id}/feedbackItems/{item_id}")
+
+    def create(self, project_id: str, payload: dict):
+        return self.client.post(f"projects/{project_id}/feedbackItems", json=payload)
+
+    def update(self, project_id: str, item_id: str, payload: dict):
+        return self.client.put(f"projects/{project_id}/feedbackItems/{item_id}", json=payload)
+
+    def delete(self, project_id: str, item_id: str):
+        return self.client.delete(f"projects/{project_id}/feedbackItems/{item_id}")
+
+
+class PackagesAPI(_BaseAPI):
+    def list(self, project_id: str):
+        return self.client.get(f"projects/{project_id}/packages")
+
+    def get(self, project_id: str, package_id: str):
+        return self.client.get(f"projects/{project_id}/packages/{package_id}")
+
+
+class RevisionsAPI(_BaseAPI):
+    def list(self, project_id: str, branch_id: str, file_id: str):
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions")
+
+    def get(self, project_id: str, branch_id: str, file_id: str, revision_id: str):
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions/{revision_id}")
+
+    def restore(self, project_id: str, branch_id: str, file_id: str, revision_id: str, payload: dict | None = None):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions/{revision_id}/restore",
+            json=payload or {},
+        )
+
+
+class ApprovalsAPI(_BaseAPI):
+    def list(self, project_id: str):
+        return self.client.get(f"projects/{project_id}/approvals")
+
+    def get(self, project_id: str, approval_id: str):
+        return self.client.get(f"projects/{project_id}/approvals/{approval_id}")
+
+    def update(self, project_id: str, approval_id: str, payload: dict):
+        return self.client.put(f"projects/{project_id}/approvals/{approval_id}", json=payload)
+
+
+class BOMsAPI(_BaseAPI):
+    def list(self, project_id: str):
+        return self.client.get(f"projects/{project_id}/boms")
+
+    def get(self, project_id: str, bom_id: str):
+        return self.client.get(f"projects/{project_id}/boms/{bom_id}")
+
+    def create(self, project_id: str, payload: dict):
+        return self.client.post(f"projects/{project_id}/boms", json=payload)
+
+
+class SearchAPI(_BaseAPI):
     def query(self, payload: dict):
         return self.client.put("search", json=payload)
 
