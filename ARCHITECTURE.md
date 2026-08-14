@@ -65,7 +65,9 @@ Each `*API` class holds a `client: BildClient` and only issues HTTP via
 | Suite | Role |
 | --- | --- |
 | `tests/test_auth.py` | token required, bearer header, no Content-Type, 401/403 |
-| `tests/test_client_routes.py` | every resource method hits the expected path/method |
+| `tests/test_transport.py` | 4xx/5xx mapping, empty/204 bodies, timeout, base URL, `.env` |
+| `tests/test_resolvers.py` | branch/version auto-resolve fallbacks and ValueErrors |
+| `tests/test_client_routes.py` | every resource method hits the expected path/method/body |
 | `tests/test_import.py` | package import smoke |
 | `tests/test_live_api.py` | read-only calls against the real API when a token is present |
 | `tests/test_architecture.py` | layer and public-surface invariants |

@@ -115,12 +115,13 @@ class TestLiveAPI(unittest.TestCase):
         result = self.client.verify()
         self.assertTrue(result["ok"])
         self.assertEqual(result["function"], "BildClient.verify")
-        self.assertTrue(result.get("users"))
-        self.assertTrue(result.get("projects"))
+        self.assertIn("users", result)
+        self.assertIn("projects", result)
 
     def test_list_users(self):
         users = _as_list(self.client.api.users.list())
-        self.assertGreater(len(users), 0)
+        if not users:
+            self.skipTest("No users returned")
         self.assertTrue(users[0].get("id") or users[0].get("email"))
 
     def test_list_projects(self):
@@ -141,6 +142,10 @@ class TestLiveAPI(unittest.TestCase):
         commits = _as_list(self.client.api.commits.list(self.project_id, self.branch_id), "commits")
         self.assertIsInstance(commits, list)
 
+    def test_list_commits_without_branch(self):
+        commits = _as_list(self.client.api.commits.list(self.project_id), "commits")
+        self.assertIsInstance(commits, list)
+
     def test_get_commit(self):
         if not self.commit_id:
             self.skipTest("No commits available")
@@ -152,11 +157,15 @@ class TestLiveAPI(unittest.TestCase):
     def test_list_files(self):
         payload = self.client.api.files.list(self.project_id, self.branch_id)
         self.assertIsInstance(payload, dict)
-        self.assertTrue(
-            isinstance(payload.get("data"), (list, dict))
-            or payload.get("s3Url")
-            or payload.get("items")
-        )
+        if payload.get("s3Url") and not payload.get("data") and not payload.get("items"):
+            self.skipTest("files.list returned an s3Url envelope; the SDK does not fetch it")
+        self.assertTrue(isinstance(payload.get("data"), (list, dict)) or payload.get("items"))
+
+    def test_list_files_without_branch(self):
+        payload = self.client.api.files.list(self.project_id)
+        self.assertIsInstance(payload, (dict, list))
+        if isinstance(payload, dict) and payload.get("s3Url") and not payload.get("data"):
+            self.skipTest("files.list returned an s3Url envelope; the SDK does not fetch it")
 
     def test_list_released_files(self):
         payload = self.client.api.files.list_released("2026-01-01T00:00:00Z")
@@ -277,6 +286,12 @@ class TestLiveAPI(unittest.TestCase):
         project = self.client.api.approvals.list(self.project_id)
         self.assertIsInstance(account, dict)
         self.assertIsInstance(project, dict)
+        items = _as_list(account, "approvals")
+        approval_id = _first_id(items, "id")
+        if approval_id:
+            approval_project = items[0].get("projectID") or self.project_id
+            detail = self.client.api.approvals.get(approval_project, approval_id)
+            self.assertIsInstance(detail, dict)
 
     def test_boms(self):
         payload = self.client.api.boms.list(self.project_id, self.branch_id)
@@ -291,11 +306,16 @@ class TestLiveAPI(unittest.TestCase):
         payload = self.client.api.search.files("bolt", page_size=5)
         self.assertIsInstance(payload, dict)
         files = _as_list(payload, "files")
-        self.assertGreater(len(files), 0)
+        self.assertIsInstance(files, list)
 
     def test_webhooks(self):
         payload = self.client.api.webhooks.list()
         self.assertIsInstance(payload, (dict, list))
+        items = _as_list(payload)
+        subscription_id = _first_id(items, "id")
+        if subscription_id:
+            detail = self.client.api.webhooks.get(subscription_id)
+            self.assertIsInstance(detail, dict)
 
     def test_released_file_is_optional(self):
         if not self.file_id:

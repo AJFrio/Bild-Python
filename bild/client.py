@@ -713,7 +713,13 @@ def _pick_list(payload: Any):
 
 
 def _safe_json(response: requests.Response):
+    content = getattr(response, "content", None)
+    if content in (b"", ""):
+        return None
     try:
         return response.json()
     except Exception:
-        return {"raw": response.text}
+        text = getattr(response, "text", "")
+        if not text or not str(text).strip():
+            return None
+        return {"raw": text}

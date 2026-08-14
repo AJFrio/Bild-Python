@@ -34,7 +34,21 @@ Resource methods that accept `branch_id: str | None` should call
 
 ## Response helper
 
-`_safe_json` returns parsed JSON or `{"raw": response.text}`.
+`_safe_json` returns parsed JSON. An empty success body (HTTP 204, or no
+bytes) returns `None` so DELETE helpers are not confused with
+`{"raw": ""}`. Non-empty non-JSON bodies become `{"raw": response.text}`.
+
 `_pick_list` / `_pick_from_response` tolerate `{data: ...}` and `{items: ...}`
 envelopes. Keep that tolerance at the helper layer, not copied into every
 resource method.
+
+## List envelopes that point at S3
+
+Some list endpoints (notably `files.list`) may return `{s3Url: ...}`
+instead of an inline JSON array when the result is large. The client
+returns that envelope as-is and does **not** fetch the URL.
+
+Following `s3Url` would be a second HTTP hop, usually to a signed URL
+that must not receive the Bild `Authorization` header. Callers that need
+the file list should GET the URL themselves (or use `client.get` only
+against Bild paths). Do not add an automatic follow without a new spec.
