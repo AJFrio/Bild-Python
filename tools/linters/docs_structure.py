@@ -6,6 +6,7 @@ AGENTS_MAX_LINES = 130
 
 REQUIRED_DOCS = (
     "AGENTS.md",
+    "AGENT_SETUP.md",
     "ARCHITECTURE.md",
     "docs/INDEX.md",
     "docs/PRODUCT.md",
@@ -33,6 +34,7 @@ AGENTS_MUST_MENTION = (
     "ARCHITECTURE.md",
     "docs/CONVENTIONS.md",
     "docs/INDEX.md",
+    "AGENT_SETUP.md",
     "tools/check.py",
     "Content-Type",
 )

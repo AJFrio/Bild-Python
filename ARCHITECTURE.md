@@ -41,6 +41,7 @@ BildClient
   token, base_url, timeout, session
   request / get / post / put / delete
   resolve_branch_id / resolve_file_version
+  verify() — read-only handshake (users + projects)
   api: _Resources
         users, projects, project_users, branches, commits, files,
         uploads, checkouts, shared_links, metadata, feedback,

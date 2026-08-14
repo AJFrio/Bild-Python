@@ -32,6 +32,9 @@ Must stay aligned with `BildClient.api` and the README "API groups" list:
 - Load `.env` without overriding existing env.
 - Auto-resolve default branch and latest file version where documented.
 - Omit `None` optional JSON fields.
+- `BildClient.verify()` — read-only handshake (`users.list` + `projects.list`)
+  used by [AGENT_SETUP.md](../../AGENT_SETUP.md). Return shape is
+  `{ok, function, base_url, users, projects}`.
 
 ## Convenience (not allowed without a new spec)
 

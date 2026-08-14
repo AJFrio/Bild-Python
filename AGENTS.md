@@ -23,6 +23,7 @@ The package is not on PyPI yet.
 | Security | [docs/SECURITY.md](docs/SECURITY.md) |
 | Reliability | [docs/RELIABILITY.md](docs/RELIABILITY.md) |
 | Full catalog | [docs/INDEX.md](docs/INDEX.md) |
+| End-user agent setup | [AGENT_SETUP.md](AGENT_SETUP.md) |
 
 ## Layout
 

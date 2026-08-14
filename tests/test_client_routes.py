@@ -61,6 +61,11 @@ class TestBildClientRoutes(unittest.TestCase):
     def test_full_route_coverage(self):
         c = self.client
 
+        verified = c.verify()
+        self.assertEqual(verified["function"], "BildClient.verify")
+        self.assertTrue(verified["ok"])
+        self.assertTrue(self.last()["path"].endswith("/projects"))
+
         c.api.users.list()
         self.assertTrue(self.last()["path"].endswith("/users"))
         c.api.users.invite(["a@example.com"], projects=[{"id": "p1"}])

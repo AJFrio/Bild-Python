@@ -19,6 +19,9 @@ Bild personal access tokens are JWTs. Treat them as secrets.
 
 ## Live tests
 
+`BildClient.verify()` is read-only (`users.list` and `projects.list`). It is
+the handshake in [AGENT_SETUP.md](../AGENT_SETUP.md).
+
 `tests/test_live_api.py` and `TestLiveAuth` run only when a token is present.
 They must stay read-only (list/get/search). Do not add invite, upload,
 delete, checkout, or webhook-create calls to the live suite.

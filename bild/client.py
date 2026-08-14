@@ -110,6 +110,20 @@ class BildClient:
             webhooks=WebhooksAPI(self),
         )
 
+    def verify(self) -> dict[str, Any]:
+        """Read-only setup handshake used by AGENT_SETUP.md.
+
+        Lists users and projects so an installing agent can prove the token
+        works and show the human the exact return value.
+        """
+        return {
+            "ok": True,
+            "function": "BildClient.verify",
+            "base_url": self.base_url,
+            "users": self.api.users.list(),
+            "projects": self.api.projects.list(),
+        }
+
     def request(self, method: str, path: str, *, params=None, json=None) -> Any:
         url = f"{self.base_url}/{path.lstrip('/')}"
         kwargs: dict[str, Any] = {

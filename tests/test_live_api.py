@@ -111,6 +111,13 @@ class TestLiveAPI(unittest.TestCase):
                     data.get("fileVersionID") or data.get("fileVersion") or data.get("versionId")
                 )
 
+    def test_verify_handshake(self):
+        result = self.client.verify()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["function"], "BildClient.verify")
+        self.assertTrue(result.get("users"))
+        self.assertTrue(result.get("projects"))
+
     def test_list_users(self):
         users = _as_list(self.client.api.users.list())
         self.assertGreater(len(users), 0)
