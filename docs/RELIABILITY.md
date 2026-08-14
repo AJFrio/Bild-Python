@@ -5,8 +5,9 @@
 - Timeout: 30 seconds per request (`timeout=` on `BildClient`).
 - Live tests use 60 seconds.
 - No automatic retries. Callers retry if they need to.
-- JSON parse failures become `{"raw": response.text}` rather than raising
-  from the transport layer.
+- Empty success bodies (HTTP 204 / no bytes) return `None`.
+- Non-empty JSON parse failures become `{"raw": response.text}` rather
+  than raising from the transport layer.
 
 ## Error mapping
 

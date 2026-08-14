@@ -35,6 +35,7 @@ delete files, search). Do not "fix" them to `POST`.
 
 - Unit tests use a fake session. They must not need a network or token.
 - Route tests assert path suffix, method, and important JSON/query fields.
+  `tests/test_client_routes.py` must call every public `*API` method.
 - Live tests (`tests/test_live_api.py`) are read-only and skip without
   `BILD_API_KEY`.
 - Prefer `unittest` for class-scoped live setup; pytest collects both.

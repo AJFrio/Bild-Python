@@ -4,8 +4,6 @@ import os
 import sys
 import types
 import unittest
-from dataclasses import dataclass
-from urllib.parse import urlparse
 
 try:
     import requests  # noqa: F401
@@ -17,46 +15,7 @@ except ImportError:
 
 from bild import BildAuthError, BildClient
 from bild.client import DEFAULT_BASE_URL
-
-
-@dataclass
-class FakeResponse:
-    status_code: int
-    payload: dict
-
-    @property
-    def ok(self):
-        return 200 <= self.status_code < 300
-
-    def json(self):
-        return self.payload
-
-    @property
-    def text(self):
-        return str(self.payload)
-
-
-class RecordingSession:
-    def __init__(self, status_code: int = 200, payload: dict | None = None):
-        self.headers = {}
-        self.calls = []
-        self.status_code = status_code
-        self.payload = payload or {"ok": True}
-
-    def request(self, method, url, params=None, json=None, timeout=None, **kwargs):
-        self.calls.append(
-            {
-                "method": method.upper(),
-                "url": url,
-                "path": urlparse(url).path,
-                "params": params,
-                "json": json,
-                "json_passed": "json" in kwargs or json is not None,
-                "headers": dict(self.headers),
-                "timeout": timeout,
-            }
-        )
-        return FakeResponse(self.status_code, self.payload)
+from tests.fakes import RecordingSession
 
 
 class TestBildAuth(unittest.TestCase):
