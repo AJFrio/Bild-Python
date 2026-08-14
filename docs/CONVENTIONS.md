@@ -21,6 +21,7 @@
 | `bild/errors.py` | exceptions only; no `requests`, no client import |
 | `bild/client.py` | transport + resource classes until the split lands |
 | `tests/test_*.py` | one concern per file |
+| `examples/` | runnable scripts (not collected as tests) |
 | `tools/linters/` | harness rules with remediation text |
 
 Do not add `bild/utils.py` dumping grounds. Shared helpers stay next to the
@@ -44,4 +45,5 @@ delete files, search). Do not "fix" them to `POST`.
 
 - Update `docs/INDEX.md` when adding a doc.
 - Keep `AGENTS.md` under 130 lines.
-- User-facing examples live in `README.md`.
+- User-facing snippets live in `README.md`. Runnable scripts live in
+  `examples/`.
