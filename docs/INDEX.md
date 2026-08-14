@@ -5,6 +5,7 @@
 | Doc | Status | What it covers |
 | --- | --- | --- |
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | current | Layers, HTTP contract, test map |
+| [../AGENT_SETUP.md](../AGENT_SETUP.md) | current | Playbook to hand another agent for end-user install + `verify()` |
 | [PRODUCT.md](PRODUCT.md) | current | Who the SDK is for and what "done" means |
 | [DESIGN.md](DESIGN.md) | current | Design principles and taste |
 | [CONVENTIONS.md](CONVENTIONS.md) | current | Naming, files, errors, JSON |

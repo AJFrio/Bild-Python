@@ -9,6 +9,11 @@
 
 A missing token raises `ValueError` at construct time.
 
+`BildClient.verify()` is the consumer handshake. It is read-only
+(`users.list` + `projects.list`). Installing agents follow
+[AGENT_SETUP.md](../../AGENT_SETUP.md) and must show the human the exact
+return value. Do not add writes to `verify()`.
+
 ## Errors
 
 HTTP 401 and 403 raise `BildAuthError` (subclass of `BildAPIError`) with

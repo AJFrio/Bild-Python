@@ -113,6 +113,25 @@ class TestBildAuth(unittest.TestCase):
         with self.assertRaises(BildAuthError):
             client.api.projects.list()
 
+    def test_verify_lists_users_and_projects(self):
+        session = RecordingSession()
+        client = BildClient(token="jwt-token", session=session)
+        result = client.verify()
+        self.assertEqual(
+            result,
+            {
+                "ok": True,
+                "function": "BildClient.verify",
+                "base_url": DEFAULT_BASE_URL,
+                "users": {"ok": True},
+                "projects": {"ok": True},
+            },
+        )
+        paths = [call["path"] for call in session.calls]
+        self.assertEqual(paths, ["/users", "/projects"])
+        self.assertTrue(all(call["method"] == "GET" for call in session.calls))
+        self.assertTrue(all(call["json"] is None for call in session.calls))
+
 
 @unittest.skipUnless(os.getenv("BILD_API_KEY"), "BILD_API_KEY not set")
 class TestLiveAuth(unittest.TestCase):
