@@ -13,7 +13,12 @@ library, call `BildClient.verify()`, and show you the return value.
 https://github.com/AJFrio/Bild-Python/blob/main/AGENT_SETUP.md
 ```
 
-Or hand it the file in this repo: [AGENT_SETUP.md](AGENT_SETUP.md).
+After setup, hand it [AGENT_USAGE.md](AGENT_USAGE.md) (or
+`https://github.com/AJFrio/Bild-Python/blob/main/AGENT_USAGE.md`) so it
+resolves the default branch instead of guessing `main` / `master`.
+
+Or hand it the files in this repo: [AGENT_SETUP.md](AGENT_SETUP.md) and
+[AGENT_USAGE.md](AGENT_USAGE.md).
 
 ## 1) Clone and set up (manual)
 
@@ -100,9 +105,25 @@ client.api.users.invite(
 )
 ```
 
+### Default branch
+
+Bild branches are often **not** named `main` or `master`. Do not guess
+those names. Resolve the id, or pass `branch_id=None` on branch-scoped
+methods:
+
+```python
+branch_id = client.resolve_branch_id("project-id")
+branches = client.api.branches.list("project-id")
+```
+
+`resolve_branch_id` lists the project's branches and prefers a flagged
+default (`isMain` / `isDefault` / `isDefaultBranch`), then a main/master
+name, then the first branch.
+
 ### List files in a project
 
 ```python
+# Official default-branch file list (no branch id needed)
 files = client.api.files.list("project-id")
 print(files)
 ```
@@ -112,7 +133,7 @@ print(files)
 ```python
 result = client.api.files.export_universal(
     project_id="project-id",
-    branch_id=None,  # auto-resolves main/default branch
+    branch_id=None,  # resolve_branch_id — not a guessed "main" name
     file_id="file-id",
     output_format="stl",
 )
@@ -127,7 +148,7 @@ print(links)
 
 new_link = client.api.shared_links.create_live(
     "project-id",
-    "branch-id",
+    None,  # default branch
     name="Review Link",
     file_ids=["file-id"],
 )

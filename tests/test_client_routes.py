@@ -317,6 +317,33 @@ class TestBildClientRoutes(unittest.TestCase):
             self.client.api.revisions.list(file_id="f1")
         with self.assertRaises(ValueError):
             self.client.api.revisions.list(branch_id="b1")
+        self.client.api.revisions.list("p1", None, "f1")
+        self.assert_call("GET", "/projects/p1/branches/branch-main/files/f1/revisions")
+
+    def test_branch_id_none_resolves(self):
+        c = self.client
+        c.api.commits.get("p1", None, "c1")
+        self.assert_call("GET", "/projects/p1/branches/branch-main/commits/c1")
+        c.api.files.move("p1", None, ["f1"], "parent-1")
+        self.assert_call(
+            "PUT",
+            "/fileActions/move",
+            json={"moveFiles": ["f1"], "newParentID": "parent-1"},
+        )
+        c.api.uploads.initiate("p1", None, [{"name": "x"}])
+        self.assert_call("PUT", "/fileActions/initiateUpload", json={"files": [{"name": "x"}]})
+        c.api.checkouts.checkout("p1", None, ["f1"])
+        self.assert_call("PUT", "/fileActions/checkout", json={"fileIDs": ["f1"]})
+        c.api.shared_links.create_live("p1", None, "Review Link", ["f1"])
+        self.assert_call(
+            "POST", "/files/sharedLink", json={"name": "Review Link", "fileIDs": ["f1"]}
+        )
+        c.api.metadata.get("p1", None, "f1")
+        self.assert_call("GET", "/files/f1/metadata")
+        c.api.revisions.get_closure("p1", None, "f1")
+        self.assert_call("GET", "/files/f1/closure")
+        c.api.boms.list("p1")
+        self.assert_call("GET", "/projects/p1/branches/branch-main/boms")
 
     def test_approvals(self):
         c = self.client

@@ -30,11 +30,22 @@ Must stay aligned with `BildClient.api` and the README "API groups" list:
 ## Convenience (allowed)
 
 - Load `.env` without overriding existing env.
-- Auto-resolve default branch and latest file version where documented.
+- `resolve_branch_id(project_id, branch_id=None)` — do not guess `main` /
+  `master`. Lists project branches and prefers a flagged default, then
+  those names, then the first branch. Also reads `id` / `branchId` /
+  `branchID`.
+- Branch-scoped resource methods accept `branch_id=None` and call that
+  helper. Project-level list routes (`files.list`, `commits.list`,
+  `shared_links.list`, `revisions.list`, `feedback.list`) still omit the
+  branch path when `branch_id` is omitted.
+- `resolve_file_version` / `files.export_universal` auto-resolve latest
+  version when `file_version` is omitted.
 - Omit `None` optional JSON fields.
 - `BildClient.verify()` — read-only handshake (`users.list` + `projects.list`)
   used by [AGENT_SETUP.md](../../AGENT_SETUP.md). Return shape is
   `{ok, function, base_url, users, projects}`.
+- Consumer-agent playbooks: [AGENT_SETUP.md](../../AGENT_SETUP.md) then
+  [AGENT_USAGE.md](../../AGENT_USAGE.md).
 
 ## Convenience (not allowed without a new spec)
 

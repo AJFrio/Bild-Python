@@ -46,6 +46,14 @@ class TestResolveBranchId(unittest.TestCase):
         client = self._client({"items": [{"id": "flag-id", "default": True}]})
         self.assertEqual(client.resolve_branch_id("p1"), "flag-id")
 
+    def test_prefers_is_default_branch(self):
+        client = self._client({"data": [{"id": "def-branch", "isDefaultBranch": True}]})
+        self.assertEqual(client.resolve_branch_id("p1"), "def-branch")
+
+    def test_reads_branch_id_capital_id(self):
+        client = self._client({"data": [{"branchID": "capital-id", "name": "Production"}]})
+        self.assertEqual(client.resolve_branch_id("p1"), "capital-id")
+
     def test_falls_back_to_name_main(self):
         client = self._client({"data": [{"id": "named", "name": "Main"}]})
         self.assertEqual(client.resolve_branch_id("p1"), "named")

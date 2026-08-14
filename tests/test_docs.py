@@ -25,6 +25,20 @@ class TestDocsPresent(unittest.TestCase):
         self.assertIn("jwt", lowered)
         self.assertIn("do not invent", lowered)
         self.assertIn("ask about", lowered)
+        self.assertIn("resolve_branch_id", text)
+        self.assertIn("AGENT_USAGE.md", text)
+        for banned in ("custom host", "non-production", "their-host"):
+            self.assertNotIn(banned, lowered)
+
+    def test_agent_usage_covers_branch_resolution(self):
+        text = (ROOT / "AGENT_USAGE.md").read_text(encoding="utf-8")
+        lowered = text.lower()
+        self.assertIn("https://api.getbild.com", text)
+        self.assertIn("resolve_branch_id", text)
+        self.assertIn("resolve_file_version", text)
+        self.assertIn("do not invent", lowered)
+        self.assertIn("main", lowered)
+        self.assertIn("master", lowered)
         for banned in ("custom host", "non-production", "their-host"):
             self.assertNotIn(banned, lowered)
 

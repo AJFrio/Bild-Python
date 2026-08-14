@@ -24,13 +24,19 @@ stripped of a leading slash. The host is `https://api.getbild.com`.
 ## Resolvers
 
 - `resolve_branch_id(project_id, branch_id=None)` — uses the given id, else
-  the branch marked main/default, else a branch named main/master, else the
-  first branch.
+  the branch marked `isMain` / `isDefault` / `isDefaultBranch` / `default`,
+  else a branch named main/master, else the first branch. IDs are read from
+  `id`, `branchId`, or `branchID`.
 - `resolve_file_version(...)` — uses the given version, else
   `GET .../files/{file_id}/latest`.
 
-Resource methods that accept `branch_id: str | None` should call
-`resolve_branch_id` rather than inventing their own lookup.
+Branch-scoped resource methods accept `branch_id: str | None` and call
+`resolve_branch_id`. Do not invent a name lookup (`main` / `master`).
+
+These list methods keep a project-level route when `branch_id` is omitted
+(`files.list`, `commits.list`, `shared_links.list`, `revisions.list`,
+`feedback.list`). Pass an explicit id (or the result of `resolve_branch_id`)
+to hit the branch path.
 
 ## Response helper
 
