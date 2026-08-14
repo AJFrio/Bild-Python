@@ -141,6 +141,12 @@ search_result = client.api.search.files("bolt")
 print(search_result)
 ```
 
+A runnable read-only script is in [`examples/test_search.py`](examples/test_search.py):
+
+```bash
+python examples/test_search.py bolt
+```
+
 ---
 
 ## API groups
