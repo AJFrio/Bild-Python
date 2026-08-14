@@ -18,6 +18,16 @@ class TestDocsPresent(unittest.TestCase):
         self.assertIn("bild/errors.py", text)
         self.assertIn("Content-Type", text)
 
+    def test_agent_setup_does_not_invite_alternate_host_or_auth(self):
+        text = (ROOT / "AGENT_SETUP.md").read_text(encoding="utf-8")
+        lowered = text.lower()
+        self.assertIn("https://api.getbild.com", text)
+        self.assertIn("jwt", lowered)
+        self.assertIn("do not invent", lowered)
+        self.assertIn("ask about", lowered)
+        for banned in ("custom host", "non-production", "their-host"):
+            self.assertNotIn(banned, lowered)
+
 
 if __name__ == "__main__":
     unittest.main()
