@@ -14,6 +14,12 @@ dependencies = ["requests>=2.31.0"]
 
 [project.optional-dependencies]
 test = ["pytest>=8.0.0"]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "types-requests>=2.31.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/AJFrio/Bild-Python"
@@ -25,3 +31,23 @@ package-dir = {"" = "."}
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["bild*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["bild", "tests", "tools"]
+exclude = ["bild_python.egg-info"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["bild"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

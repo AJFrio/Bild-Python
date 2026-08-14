@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import sys
+import types
 import unittest
 from dataclasses import dataclass
 from urllib.parse import urlparse
-import sys
-import types
 
-if "requests" not in sys.modules:
+try:
+    import requests  # noqa: F401
+except ImportError:
     fake_requests = types.ModuleType("requests")
     fake_requests.Session = object
     fake_requests.Response = object
@@ -103,13 +105,19 @@ class TestBildClientRoutes(unittest.TestCase):
         self.assertTrue(self.last()["path"].endswith("/files/released"))
         self.assertEqual(self.last()["params"]["fromTime"], "2024-01-01T00:00:00Z")
         c.api.files.list_versions("p1", None, "f1")
-        self.assertTrue(self.last()["path"].endswith("/projects/p1/branches/branch-main/files/f1/versions"))
+        self.assertTrue(
+            self.last()["path"].endswith("/projects/p1/branches/branch-main/files/f1/versions")
+        )
         c.api.files.get_latest("p1", None, "f1")
-        self.assertTrue(self.last()["path"].endswith("/projects/p1/branches/branch-main/files/f1/latest"))
+        self.assertTrue(
+            self.last()["path"].endswith("/projects/p1/branches/branch-main/files/f1/latest")
+        )
         c.api.files.get_released("p1", "b1", "f1")
         self.assertTrue(self.last()["path"].endswith("/projects/p1/branches/b1/files/f1/released"))
         c.api.files.get_version("p1", "b1", "f1", "v1")
-        self.assertTrue(self.last()["path"].endswith("/projects/p1/branches/b1/files/f1/versions/v1"))
+        self.assertTrue(
+            self.last()["path"].endswith("/projects/p1/branches/b1/files/f1/versions/v1")
+        )
         c.api.files.get_thumbnail("p1", "b1", "f1", "v1")
         self.assertTrue(self.last()["path"].endswith("/thumbnail"))
         c.api.files.get_children("p1", "b1", "f1", "v1")
@@ -118,7 +126,9 @@ class TestBildClientRoutes(unittest.TestCase):
         self.assertTrue(self.last()["path"].endswith("/fileActions/f1/universalFormat"))
         self.assertEqual(self.last()["method"], "PUT")
         self.assertEqual(self.last()["json"]["fileVersionID"], "v-latest")
-        c.api.files.export_universal_many("p1", "b1", {"fileIDs": ["f1"], "formats": {"CAD": ["STL"]}})
+        c.api.files.export_universal_many(
+            "p1", "b1", {"fileIDs": ["f1"], "formats": {"CAD": ["STL"]}}
+        )
         self.assertTrue(self.last()["path"].endswith("/files/exportUniversalFiles"))
         c.api.files.move("p1", "b1", ["f1"], "parent-1")
         self.assertTrue(self.last()["path"].endswith("/fileActions/move"))
@@ -219,7 +229,12 @@ class TestBildClientRoutes(unittest.TestCase):
         self.assertTrue(self.last()["path"].endswith("/projects/p1/branches/b1/boms"))
         c.api.boms.get("p1", "b1", "bom1")
         self.assertTrue(self.last()["path"].endswith("/boms/bom1"))
-        c.api.boms.download("p1", "b1", "bom1", {"version_id": "v", "view_id": "w", "type": "Indented", "formats": {}})
+        c.api.boms.download(
+            "p1",
+            "b1",
+            "bom1",
+            {"version_id": "v", "view_id": "w", "type": "Indented", "formats": {}},
+        )
         self.assertTrue(self.last()["path"].endswith("/boms/bom1/download"))
 
         c.api.search.files("bolt")

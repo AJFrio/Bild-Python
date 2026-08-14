@@ -24,7 +24,13 @@ The client sends that token on every request as:
 Authorization: Bearer <your_token>
 ```
 
-Set it in the environment:
+Copy `.env.example` to `.env` and set the token (`.env` is gitignored):
+
+```bash
+BILD_API_KEY=YOUR_JWT_TOKEN
+```
+
+`BildClient()` loads `.env` automatically. You can also set the variable in the shell:
 
 ```bash
 export BILD_API_KEY="YOUR_JWT_TOKEN"
@@ -97,7 +103,7 @@ print(files)
 ```python
 result = client.api.files.export_universal(
     project_id="project-id",
-    branch_id=None,           # auto-resolves main/default branch
+    branch_id=None,  # auto-resolves main/default branch
     file_id="file-id",
     output_format="stl",
 )
@@ -155,10 +161,7 @@ These map to the groups in the [Bild External API reference](https://bildexterna
 ## Advanced: custom base URL
 
 ```python
-client = BildClient(
-    token="YOUR_JWT_TOKEN",
-    base_url="https://api.getbild.com"
-)
+client = BildClient(token="YOUR_JWT_TOKEN", base_url="https://api.getbild.com")
 ```
 
 ## Escape hatch for unwrapped endpoints
@@ -168,10 +171,13 @@ raw = client.get("projects")
 print(raw)
 ```
 
-## Tests
+## Tests and development
 
 ```bash
-python -m unittest discover -s tests -p "test_*.py" -v
+python -m pip install -e ".[dev]"
+python tools/check.py --all
 ```
 
-If `BILD_API_KEY` is set, a live auth smoke test also runs against `GET /users`.
+That runs format check, ruff, mypy, harness linters, and pytest. Agents should start at [AGENTS.md](AGENTS.md); the knowledge base lives in [docs/INDEX.md](docs/INDEX.md).
+
+If `BILD_API_KEY` is set (or present in `.env`), live read-only tests also run against the real API (`users`, `projects`, `files`, `search`, and the other list/get groups). Write and delete calls are not exercised.

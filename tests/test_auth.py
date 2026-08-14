@@ -7,7 +7,9 @@ import unittest
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-if "requests" not in sys.modules:
+try:
+    import requests  # noqa: F401
+except ImportError:
     fake_requests = types.ModuleType("requests")
     fake_requests.Session = object
     fake_requests.Response = object
