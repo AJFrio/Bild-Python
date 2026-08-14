@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -11,25 +13,55 @@ from .errors import BildAPIError, BildAuthError
 DEFAULT_BASE_URL = "https://api.getbild.com"
 
 
+def _load_env_file() -> None:
+    """Load KEY=VALUE pairs from a local .env without overwriting existing env vars."""
+    candidates = [Path.cwd() / ".env"]
+    try:
+        candidates.append(Path(__file__).resolve().parents[1] / ".env")
+    except IndexError:
+        pass
+
+    seen: set[Path] = set()
+    for path in candidates:
+        resolved = path.resolve()
+        if resolved in seen or not path.is_file():
+            continue
+        seen.add(resolved)
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            if line.startswith("export "):
+                line = line[7:].strip()
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip("'").strip('"')
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_env_file()
+
+
 @dataclass
 class _Resources:
-    users: "UsersAPI"
-    projects: "ProjectsAPI"
-    project_users: "ProjectUsersAPI"
-    branches: "BranchesAPI"
-    commits: "CommitsAPI"
-    files: "FilesAPI"
-    uploads: "UploadsAPI"
-    checkouts: "CheckoutsAPI"
-    shared_links: "SharedLinksAPI"
-    metadata: "MetadataAPI"
-    feedback: "FeedbackAPI"
-    packages: "PackagesAPI"
-    revisions: "RevisionsAPI"
-    approvals: "ApprovalsAPI"
-    boms: "BOMsAPI"
-    search: "SearchAPI"
-    webhooks: "WebhooksAPI"
+    users: UsersAPI
+    projects: ProjectsAPI
+    project_users: ProjectUsersAPI
+    branches: BranchesAPI
+    commits: CommitsAPI
+    files: FilesAPI
+    uploads: UploadsAPI
+    checkouts: CheckoutsAPI
+    shared_links: SharedLinksAPI
+    metadata: MetadataAPI
+    feedback: FeedbackAPI
+    packages: PackagesAPI
+    revisions: RevisionsAPI
+    approvals: ApprovalsAPI
+    boms: BOMsAPI
+    search: SearchAPI
+    webhooks: WebhooksAPI
 
 
 class BildClient:
@@ -127,10 +159,14 @@ class BildClient:
             if not isinstance(b, dict):
                 continue
             if b.get("isMain") or b.get("isDefault") or b.get("default"):
-                return b.get("id") or b.get("branchId")
+                value = b.get("id") or b.get("branchId")
+                if value:
+                    return str(value)
         for b in branches:
             if isinstance(b, dict) and str(b.get("name", "")).lower() in ("main", "master"):
-                return b.get("id") or b.get("branchId")
+                value = b.get("id") or b.get("branchId")
+                if value:
+                    return str(value)
 
         first = branches[0]
         if isinstance(first, dict):
@@ -149,7 +185,9 @@ class BildClient:
         if file_version:
             return file_version
         latest = self.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latest")
-        value = _pick_from_response(latest, "fileVersion", "fileVersionID", "id", "versionId", "latestFileVersion")
+        value = _pick_from_response(
+            latest, "fileVersion", "fileVersionID", "id", "versionId", "latestFileVersion"
+        )
         if value:
             return str(value)
         raise ValueError("Could not determine file_version automatically")
@@ -166,8 +204,8 @@ class UsersAPI(_BaseAPI):
 
     def invite(
         self,
-        emails: list[str],
-        projects: list[dict] | None = None,
+        emails: Sequence[str],
+        projects: Sequence[dict] | None = None,
         *,
         company_role: str | None = None,
         pdm_role: str | None = None,
@@ -186,13 +224,13 @@ class UsersAPI(_BaseAPI):
             ),
         )
 
-    def remove(self, user_ids: list[str]):
+    def remove(self, user_ids: Sequence[str]):
         return self.client.put("users/remove", json={"userIDs": user_ids})
 
     def update(
         self,
-        user_ids: list[str],
-        projects: list[dict] | None = None,
+        user_ids: Sequence[str],
+        projects: Sequence[dict] | None = None,
         *,
         company_role: str | None = None,
         pdm_role: str | None = None,
@@ -224,19 +262,19 @@ class ProjectUsersAPI(_BaseAPI):
     def list(self, project_id: str):
         return self.client.get(f"projects/{project_id}/users")
 
-    def add(self, users: list[dict], project_ids: list[str] | None = None):
+    def add(self, users: Sequence[dict], project_ids: Sequence[str] | None = None):
         return self.client.post(
             "projects/users/add",
             json=_omit_none({"users": users, "projectIDs": project_ids}),
         )
 
-    def remove(self, project_ids: list[str], user_ids: list[str]):
+    def remove(self, project_ids: Sequence[str], user_ids: Sequence[str]):
         return self.client.put(
             "projects/users/remove",
             json={"projectIDs": project_ids, "userIDs": user_ids},
         )
 
-    def update(self, users: list[dict], project_ids: list[str] | None = None):
+    def update(self, users: Sequence[dict], project_ids: Sequence[str] | None = None):
         return self.client.put(
             "projects/users/update",
             json=_omit_none({"users": users, "projectIDs": project_ids}),
@@ -269,7 +307,9 @@ class FilesAPI(_BaseAPI):
 
     def list_versions(self, project_id: str, branch_id: str | None, file_id: str):
         branch_id = self.client.resolve_branch_id(project_id, branch_id)
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions")
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions"
+        )
 
     def get_latest(self, project_id: str, branch_id: str | None, file_id: str):
         branch_id = self.client.resolve_branch_id(project_id, branch_id)
@@ -277,7 +317,9 @@ class FilesAPI(_BaseAPI):
 
     def get_released(self, project_id: str, branch_id: str | None, file_id: str):
         branch_id = self.client.resolve_branch_id(project_id, branch_id)
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/released")
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/released"
+        )
 
     def get_version(self, project_id: str, branch_id: str | None, file_id: str, version_id: str):
         branch_id = self.client.resolve_branch_id(project_id, branch_id)
@@ -308,7 +350,9 @@ class FilesAPI(_BaseAPI):
         file_config: str | None = None,
     ):
         branch_id = self.client.resolve_branch_id(project_id, branch_id)
-        file_version = self.client.resolve_file_version(project_id, branch_id, file_id, file_version)
+        file_version = self.client.resolve_file_version(
+            project_id, branch_id, file_id, file_version
+        )
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/fileActions/{file_id}/universalFormat",
             json=_omit_none(
@@ -326,13 +370,13 @@ class FilesAPI(_BaseAPI):
             json=payload,
         )
 
-    def move(self, project_id: str, branch_id: str, file_ids: list[str], new_parent_id: str):
+    def move(self, project_id: str, branch_id: str, file_ids: Sequence[str], new_parent_id: str):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/fileActions/move",
             json={"moveFiles": file_ids, "newParentID": new_parent_id},
         )
 
-    def delete(self, project_id: str, branch_id: str, file_ids: list[str]):
+    def delete(self, project_id: str, branch_id: str, file_ids: Sequence[str]):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/fileActions/delete",
             json={"fileIDs": file_ids},
@@ -340,7 +384,7 @@ class FilesAPI(_BaseAPI):
 
 
 class UploadsAPI(_BaseAPI):
-    def initiate(self, project_id: str, branch_id: str, files: list[dict]):
+    def initiate(self, project_id: str, branch_id: str, files: Sequence[dict]):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/fileActions/initiateUpload",
             json={"files": files},
@@ -350,7 +394,7 @@ class UploadsAPI(_BaseAPI):
         self,
         project_id: str,
         branch_id: str,
-        files: list[dict],
+        files: Sequence[dict],
         *,
         keep_checked_out: bool | None = None,
     ):
@@ -361,19 +405,19 @@ class UploadsAPI(_BaseAPI):
 
 
 class CheckoutsAPI(_BaseAPI):
-    def checkout(self, project_id: str, branch_id: str, file_ids: list[str]):
+    def checkout(self, project_id: str, branch_id: str, file_ids: Sequence[str]):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/fileActions/checkout",
             json={"fileIDs": file_ids},
         )
 
-    def cancel(self, project_id: str, branch_id: str, file_ids: list[str]):
+    def cancel(self, project_id: str, branch_id: str, file_ids: Sequence[str]):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/fileActions/cancelCheckout",
             json={"fileIDs": file_ids},
         )
 
-    def initiate_checkin(self, project_id: str, branch_id: str, files: list[dict]):
+    def initiate_checkin(self, project_id: str, branch_id: str, files: Sequence[dict]):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/fileActions/initiateCheckin",
             json={"files": files},
@@ -383,7 +427,7 @@ class CheckoutsAPI(_BaseAPI):
         self,
         project_id: str,
         branch_id: str,
-        files: list[dict],
+        files: Sequence[dict],
         *,
         message: str | None = None,
     ):
@@ -406,9 +450,9 @@ class SharedLinksAPI(_BaseAPI):
         project_id: str,
         branch_id: str,
         name: str,
-        file_ids: list[str],
+        file_ids: Sequence[str],
         *,
-        types: list[str] | None = None,
+        types: Sequence[str] | None = None,
         config_map: dict | None = None,
     ):
         return self.client.post(
@@ -441,7 +485,7 @@ class SharedLinksAPI(_BaseAPI):
             f"projects/{project_id}/branches/{branch_id}/sharedLinks/{link_id}/refresh"
         )
 
-    def delete(self, project_id: str, branch_id: str, link_ids: list[str]):
+    def delete(self, project_id: str, branch_id: str, link_ids: Sequence[str]):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/sharedLinks/delete",
             json={"sharedLinkIDs": link_ids},
@@ -453,7 +497,9 @@ class MetadataAPI(_BaseAPI):
         return self.client.get("metadataFields")
 
     def get(self, project_id: str, branch_id: str, file_id: str):
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/metadata")
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/metadata"
+        )
 
     def get_for_version(self, project_id: str, branch_id: str, file_id: str, version_id: str):
         return self.client.get(
@@ -525,7 +571,9 @@ class RevisionsAPI(_BaseAPI):
     ):
         if file_id:
             if not project_id or not branch_id:
-                raise ValueError("project_id and branch_id are required when listing file revisions")
+                raise ValueError(
+                    "project_id and branch_id are required when listing file revisions"
+                )
             return self.client.get(
                 f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions"
             )
@@ -547,13 +595,13 @@ class RevisionsAPI(_BaseAPI):
             f"projects/{project_id}/branches/{branch_id}/files/{file_id}/closure"
         )
 
-    def release(self, project_id: str, branch_id: str, revisions: list[dict]):
+    def release(self, project_id: str, branch_id: str, revisions: Sequence[dict]):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/revisions/release",
             json=revisions,
         )
 
-    def cancel(self, project_id: str, branch_id: str, revision_ids: list[str]):
+    def cancel(self, project_id: str, branch_id: str, revision_ids: Sequence[str]):
         return self.client.put(
             f"projects/{project_id}/branches/{branch_id}/revisions/cancel",
             json={"revisionIDs": revision_ids},
