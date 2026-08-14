@@ -53,7 +53,7 @@ Each `*API` class holds a `client: BildClient` and only issues HTTP via
 
 ## HTTP contract
 
-- Default host: `https://api.getbild.com`
+- Host: `https://api.getbild.com`
 - Auth: `Authorization: Bearer <token>` on every request
 - `Accept: application/json` is set on the session
 - `Content-Type` is **not** set on the session. `requests` adds it only when

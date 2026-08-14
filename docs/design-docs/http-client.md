@@ -19,7 +19,7 @@ when `json=` is passed to `session.request`.
 ## URL building
 
 `{base_url}/{path}` with `base_url` stripped of a trailing slash and `path`
-stripped of a leading slash. Default `base_url` is `https://api.getbild.com`.
+stripped of a leading slash. The host is `https://api.getbild.com`.
 
 ## Resolvers
 

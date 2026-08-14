@@ -54,8 +54,6 @@ client = BildClient(token="YOUR_JWT_TOKEN")
 
 `BildClient()` with no arguments reads `BILD_API_KEY`. A missing token raises `ValueError`. Invalid or expired tokens raise `BildAuthError` (HTTP 401/403). Other failed responses raise `BildAPIError`.
 
-Default API host: `https://api.getbild.com`.
-
 ## 3) Basic usage
 
 ```python
@@ -161,12 +159,6 @@ These map to the groups in the [Bild External API reference](https://bildexterna
 - `client.api.webhooks` — webhook subscriptions
 
 ---
-
-## Advanced: custom base URL
-
-```python
-client = BildClient(token="YOUR_JWT_TOKEN", base_url="https://api.getbild.com")
-```
 
 ## Escape hatch for unwrapped endpoints
 

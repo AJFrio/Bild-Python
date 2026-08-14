@@ -18,7 +18,8 @@ PyPI yet). Repo: `https://github.com/AJFrio/Bild-Python.git`.
 
 ## What to ask the human
 
-Ask these in the human's language. Do not invent answers.
+Ask **only** these two things, in the human's language. Do not invent
+answers. Do not add extra setup questions.
 
 ### 1. Bild API token (required)
 
@@ -30,8 +31,7 @@ Prompt:
 > commit it or print it again.
 
 If they do not have a token, stop. Tell them to have an admin issue one in
-the Bild app, then come back. Do not guess a token. Do not ask for their
-Bild password — this SDK only accepts a JWT.
+the Bild app, then come back. Do not guess a token.
 
 ### 2. Install location (required if you are not already in this repo)
 
@@ -43,12 +43,20 @@ Prompt:
 
 Default clone URL: `https://github.com/AJFrio/Bild-Python.git`
 
-### 3. API host (optional)
+## Do not invent a host or auth scheme
 
-Default: `https://api.getbild.com`
+The host is always `https://api.getbild.com`. Auth is always a Bearer JWT
+personal access token (`BILD_API_KEY` / `token=`).
 
-Only ask if they mention a custom or non-production host. If they give one,
-you will pass `base_url=...` into `BildClient`. Otherwise omit it.
+Do **not** ask about:
+
+- which host or endpoint to use
+- AWS Lambda, staging, or any other URL
+- OAuth, passwords, API keys that are not this JWT, or "custom auth"
+
+If the human volunteers a different host or auth method, tell them this
+SDK only talks to `https://api.getbild.com` with a Bild JWT, then continue
+with the token they paste.
 
 ## Install
 
@@ -94,9 +102,6 @@ Rules:
 - Prefer `.env` over putting the token in the shell, so later `BildClient()`
   calls work without the human pasting it again.
 
-If they gave a custom host, you do not need to store it unless they ask;
-pass it only when constructing the client.
-
 ## Handshake (required)
 
 From the repo root, with the venv active, run this exact code:
@@ -109,15 +114,8 @@ result = client.verify()
 print(result)
 ```
 
-If they gave a custom host:
-
-```python
-client = BildClient(base_url="https://their-host.example")
-result = client.verify()
-```
-
-`verify()` is read-only. It calls `users.list` and `projects.list` and
-returns a dict shaped like:
+Do not pass `base_url`. `verify()` is read-only. It calls `users.list` and
+`projects.list` and returns a dict shaped like:
 
 ```python
 {
@@ -146,8 +144,8 @@ Use this shape. Include the real `result` value. Do not omit it.
 | Error | Meaning | What you do |
 | --- | --- | --- |
 | `ValueError: Missing token` | `.env` not loaded or empty | Fix `.env`, retry `verify()` |
-| `BildAuthError` (401/403) | Token invalid, expired, or wrong host | Ask for a new token; do not retry blindly |
-| Other `BildAPIError` | Host or API problem | Show `status_code` and `payload`; ask the human |
+| `BildAuthError` (401/403) | Token invalid or expired | Ask for a new token; do not retry blindly |
+| Other `BildAPIError` | API problem | Show `status_code` and `payload`; ask the human |
 
 Do not declare setup complete without a successful `verify()` return value.
 
