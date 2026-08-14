@@ -4,11 +4,18 @@ Python library for the [Bild External API](https://bildexternalapi.portledocs.co
 
 > This repo is currently intended to be used from source (not published to PyPI yet).
 
-To have an agent install this for you, give it [AGENT_SETUP.md](AGENT_SETUP.md).
-It will ask for a Bild JWT, install the library, call `BildClient.verify()`,
-and show you the return value.
+## Agent setup
 
-## 1) Clone and set up
+Paste this URL into your agent. It will ask for a Bild JWT, install the
+library, call `BildClient.verify()`, and show you the return value.
+
+```text
+https://github.com/AJFrio/Bild-Python/blob/main/AGENT_SETUP.md
+```
+
+Or hand it the file in this repo: [AGENT_SETUP.md](AGENT_SETUP.md).
+
+## 1) Clone and set up (manual)
 
 ```bash
 git clone https://github.com/AJFrio/Bild-Python.git
