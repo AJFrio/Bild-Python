@@ -8,7 +8,7 @@ import requests
 
 from .errors import BildAPIError, BildAuthError
 
-DEFAULT_BASE_URL = "https://api.portle.io/api"
+DEFAULT_BASE_URL = "https://api.getbild.com"
 
 
 @dataclass
@@ -16,19 +16,20 @@ class _Resources:
     users: "UsersAPI"
     projects: "ProjectsAPI"
     project_users: "ProjectUsersAPI"
-    branches_commits: "BranchesCommitsAPI"
+    branches: "BranchesAPI"
+    commits: "CommitsAPI"
     files: "FilesAPI"
-    file_upload: "FileUploadAPI"
-    file_checkin_checkout: "FileCheckinCheckoutAPI"
+    uploads: "UploadsAPI"
+    checkouts: "CheckoutsAPI"
     shared_links: "SharedLinksAPI"
-    files_move_delete: "FilesMoveDeleteAPI"
-    files_metadata: "FilesMetadataAPI"
-    feedback_items: "FeedbackItemsAPI"
+    metadata: "MetadataAPI"
+    feedback: "FeedbackAPI"
     packages: "PackagesAPI"
     revisions: "RevisionsAPI"
     approvals: "ApprovalsAPI"
     boms: "BOMsAPI"
     search: "SearchAPI"
+    webhooks: "WebhooksAPI"
 
 
 class BildClient:
@@ -47,10 +48,12 @@ class BildClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.session = session or requests.Session()
+        # Do not set Content-Type on the session. Bild's API treats that header as
+        # "this request has a JSON body" and GET/DELETE calls then 500 with
+        # "Unexpected end of JSON input". requests sets Content-Type when json= is used.
         self.session.headers.update(
             {
                 "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json",
                 "Accept": "application/json",
             }
         )
@@ -59,26 +62,33 @@ class BildClient:
             users=UsersAPI(self),
             projects=ProjectsAPI(self),
             project_users=ProjectUsersAPI(self),
-            branches_commits=BranchesCommitsAPI(self),
+            branches=BranchesAPI(self),
+            commits=CommitsAPI(self),
             files=FilesAPI(self),
-            file_upload=FileUploadAPI(self),
-            file_checkin_checkout=FileCheckinCheckoutAPI(self),
+            uploads=UploadsAPI(self),
+            checkouts=CheckoutsAPI(self),
             shared_links=SharedLinksAPI(self),
-            files_move_delete=FilesMoveDeleteAPI(self),
-            files_metadata=FilesMetadataAPI(self),
-            feedback_items=FeedbackItemsAPI(self),
+            metadata=MetadataAPI(self),
+            feedback=FeedbackAPI(self),
             packages=PackagesAPI(self),
             revisions=RevisionsAPI(self),
             approvals=ApprovalsAPI(self),
             boms=BOMsAPI(self),
             search=SearchAPI(self),
+            webhooks=WebhooksAPI(self),
         )
 
     def request(self, method: str, path: str, *, params=None, json=None) -> Any:
         url = f"{self.base_url}/{path.lstrip('/')}"
-        response = self.session.request(
-            method=method.upper(), url=url, params=params, json=json, timeout=self.timeout
-        )
+        kwargs: dict[str, Any] = {
+            "method": method.upper(),
+            "url": url,
+            "params": params,
+            "timeout": self.timeout,
+        }
+        if json is not None:
+            kwargs["json"] = json
+        response = self.session.request(**kwargs)
         if response.status_code in (401, 403):
             raise BildAuthError(
                 "Authentication/authorization failed",
@@ -138,8 +148,8 @@ class BildClient:
     ) -> str:
         if file_version:
             return file_version
-        latest = self.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latestFileVersion")
-        value = _pick_from_response(latest, "fileVersion", "id", "versionId", "latestFileVersion")
+        latest = self.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latest")
+        value = _pick_from_response(latest, "fileVersion", "fileVersionID", "id", "versionId", "latestFileVersion")
         if value:
             return str(value)
         raise ValueError("Could not determine file_version automatically")
@@ -154,8 +164,55 @@ class UsersAPI(_BaseAPI):
     def list(self):
         return self.client.get("users")
 
-    def add(self, emails: list[str], role: str = "Member", projects: list[dict] | None = None):
-        return self.client.put("users/add", json={"emails": emails, "role": role, "projects": projects or []})
+    def invite(
+        self,
+        emails: list[str],
+        projects: list[dict] | None = None,
+        *,
+        company_role: str | None = None,
+        pdm_role: str | None = None,
+        plm_role: str | None = None,
+    ):
+        return self.client.put(
+            "users/add",
+            json=_omit_none(
+                {
+                    "emails": emails,
+                    "projects": projects or [],
+                    "companyRole": company_role,
+                    "pdmRole": pdm_role,
+                    "plmRole": plm_role,
+                }
+            ),
+        )
+
+    def remove(self, user_ids: list[str]):
+        return self.client.put("users/remove", json={"userIDs": user_ids})
+
+    def update(
+        self,
+        user_ids: list[str],
+        projects: list[dict] | None = None,
+        *,
+        company_role: str | None = None,
+        pdm_role: str | None = None,
+        plm_role: str | None = None,
+    ):
+        return self.client.put(
+            "users/update",
+            json=_omit_none(
+                {
+                    "userIDs": user_ids,
+                    "projects": projects or [],
+                    "companyRole": company_role,
+                    "pdmRole": pdm_role,
+                    "plmRole": plm_role,
+                }
+            ),
+        )
+
+    def create_token(self, *, name: str | None = None, expiry: float | None = None):
+        return self.client.post("users/apiToken", json=_omit_none({"name": name, "expiry": expiry}))
 
 
 class ProjectsAPI(_BaseAPI):
@@ -167,24 +224,37 @@ class ProjectUsersAPI(_BaseAPI):
     def list(self, project_id: str):
         return self.client.get(f"projects/{project_id}/users")
 
-    def add(self, project_id: str, payload: dict):
-        return self.client.post(f"projects/{project_id}/users", json=payload)
+    def add(self, users: list[dict], project_ids: list[str] | None = None):
+        return self.client.post(
+            "projects/users/add",
+            json=_omit_none({"users": users, "projectIDs": project_ids}),
+        )
 
-    def update(self, project_id: str, user_id: str, payload: dict):
-        return self.client.put(f"projects/{project_id}/users/{user_id}", json=payload)
+    def remove(self, project_ids: list[str], user_ids: list[str]):
+        return self.client.put(
+            "projects/users/remove",
+            json={"projectIDs": project_ids, "userIDs": user_ids},
+        )
+
+    def update(self, users: list[dict], project_ids: list[str] | None = None):
+        return self.client.put(
+            "projects/users/update",
+            json=_omit_none({"users": users, "projectIDs": project_ids}),
+        )
 
 
-class BranchesCommitsAPI(_BaseAPI):
-    def list_branches(self, project_id: str):
+class BranchesAPI(_BaseAPI):
+    def list(self, project_id: str):
         return self.client.get(f"projects/{project_id}/branches")
 
-    def branch(self, project_id: str, branch_id: str):
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}")
 
-    def commits(self, project_id: str, branch_id: str):
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}/commits")
+class CommitsAPI(_BaseAPI):
+    def list(self, project_id: str, branch_id: str | None = None):
+        if branch_id:
+            return self.client.get(f"projects/{project_id}/branches/{branch_id}/commits")
+        return self.client.get(f"projects/{project_id}/commits")
 
-    def commit(self, project_id: str, branch_id: str, commit_id: str):
+    def get(self, project_id: str, branch_id: str, commit_id: str):
         return self.client.get(f"projects/{project_id}/branches/{branch_id}/commits/{commit_id}")
 
 
@@ -194,150 +264,369 @@ class FilesAPI(_BaseAPI):
             return self.client.get(f"projects/{project_id}/branches/{branch_id}/files")
         return self.client.get(f"projects/{project_id}/files")
 
-    def get(self, project_id: str, branch_id: str | None, file_id: str):
-        branch_id = self.client.resolve_branch_id(project_id, branch_id)
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}")
+    def list_released(self, from_time: str):
+        return self.client.get("files/released", params={"fromTime": from_time})
 
-    def latest_version(self, project_id: str, branch_id: str | None, file_id: str):
+    def list_versions(self, project_id: str, branch_id: str | None, file_id: str):
         branch_id = self.client.resolve_branch_id(project_id, branch_id)
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latestFileVersion")
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions")
 
-    def universal_format(
+    def get_latest(self, project_id: str, branch_id: str | None, file_id: str):
+        branch_id = self.client.resolve_branch_id(project_id, branch_id)
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/latest")
+
+    def get_released(self, project_id: str, branch_id: str | None, file_id: str):
+        branch_id = self.client.resolve_branch_id(project_id, branch_id)
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/released")
+
+    def get_version(self, project_id: str, branch_id: str | None, file_id: str, version_id: str):
+        branch_id = self.client.resolve_branch_id(project_id, branch_id)
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions/{version_id}"
+        )
+
+    def get_thumbnail(self, project_id: str, branch_id: str | None, file_id: str, version_id: str):
+        branch_id = self.client.resolve_branch_id(project_id, branch_id)
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions/{version_id}/thumbnail"
+        )
+
+    def get_children(self, project_id: str, branch_id: str | None, file_id: str, version_id: str):
+        branch_id = self.client.resolve_branch_id(project_id, branch_id)
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions/{version_id}/children"
+        )
+
+    def export_universal(
         self,
         project_id: str,
         branch_id: str | None,
         file_id: str,
         *,
-        file_version: str | None,
         output_format: str,
+        file_version: str | None = None,
+        file_config: str | None = None,
     ):
         branch_id = self.client.resolve_branch_id(project_id, branch_id)
         file_version = self.client.resolve_file_version(project_id, branch_id, file_id, file_version)
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/{file_id}/universalFormat",
+            json=_omit_none(
+                {
+                    "fileVersionID": file_version,
+                    "universalFileFormat": output_format,
+                    "fileConfig": file_config,
+                }
+            ),
+        )
+
+    def export_universal_many(self, project_id: str, branch_id: str, payload: dict):
         return self.client.post(
-            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/universalFormat",
-            json={"fileVersion": file_version, "universalFileFormat": output_format},
+            f"projects/{project_id}/branches/{branch_id}/files/exportUniversalFiles",
+            json=payload,
+        )
+
+    def move(self, project_id: str, branch_id: str, file_ids: list[str], new_parent_id: str):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/move",
+            json={"moveFiles": file_ids, "newParentID": new_parent_id},
+        )
+
+    def delete(self, project_id: str, branch_id: str, file_ids: list[str]):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/delete",
+            json={"fileIDs": file_ids},
         )
 
 
-class FileUploadAPI(_BaseAPI):
-    def init_upload(self, project_id: str, branch_id: str, payload: dict):
-        return self.client.put(f"projects/{project_id}/branches/{branch_id}/fileUpload", json=payload)
+class UploadsAPI(_BaseAPI):
+    def initiate(self, project_id: str, branch_id: str, files: list[dict]):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/initiateUpload",
+            json={"files": files},
+        )
 
-    def complete_upload(self, project_id: str, branch_id: str, payload: dict):
-        return self.client.post(f"projects/{project_id}/branches/{branch_id}/fileUpload", json=payload)
+    def complete(
+        self,
+        project_id: str,
+        branch_id: str,
+        files: list[dict],
+        *,
+        keep_checked_out: bool | None = None,
+    ):
+        return self.client.post(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/completeUpload",
+            json=_omit_none({"files": files, "keepFilesCheckedOut": keep_checked_out}),
+        )
 
 
-class FileCheckinCheckoutAPI(_BaseAPI):
-    def checkout(self, project_id: str, branch_id: str, file_id: str, payload: dict | None = None):
-        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/checkout", json=payload or {})
+class CheckoutsAPI(_BaseAPI):
+    def checkout(self, project_id: str, branch_id: str, file_ids: list[str]):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/checkout",
+            json={"fileIDs": file_ids},
+        )
 
-    def checkin(self, project_id: str, branch_id: str, file_id: str, payload: dict | None = None):
-        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/checkin", json=payload or {})
+    def cancel(self, project_id: str, branch_id: str, file_ids: list[str]):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/cancelCheckout",
+            json={"fileIDs": file_ids},
+        )
 
-    def discard_checkout(self, project_id: str, branch_id: str, file_id: str, payload: dict | None = None):
-        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/discardCheckout", json=payload or {})
+    def initiate_checkin(self, project_id: str, branch_id: str, files: list[dict]):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/initiateCheckin",
+            json={"files": files},
+        )
 
-    def create_version(self, project_id: str, branch_id: str, file_id: str, payload: dict):
-        return self.client.post(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions", json=payload)
+    def complete_checkin(
+        self,
+        project_id: str,
+        branch_id: str,
+        files: list[dict],
+        *,
+        message: str | None = None,
+    ):
+        return self.client.post(
+            f"projects/{project_id}/branches/{branch_id}/fileActions/completeCheckin",
+            json=_omit_none({"files": files, "message": message}),
+        )
 
 
 class SharedLinksAPI(_BaseAPI):
-    def list(self, project_id: str):
-        return self.client.get(f"projects/{project_id}/sharedLinks")
+    def list(self, project_id: str | None = None, branch_id: str | None = None):
+        if project_id and branch_id:
+            return self.client.get(f"projects/{project_id}/branches/{branch_id}/sharedLinks")
+        if project_id:
+            return self.client.get(f"projects/{project_id}/sharedLinks")
+        return self.client.get("sharedLinks")
 
-    def get(self, project_id: str, link_id: str):
-        return self.client.get(f"projects/{project_id}/sharedLinks/{link_id}")
+    def create_live(
+        self,
+        project_id: str,
+        branch_id: str,
+        name: str,
+        file_ids: list[str],
+        *,
+        types: list[str] | None = None,
+        config_map: dict | None = None,
+    ):
+        return self.client.post(
+            f"projects/{project_id}/branches/{branch_id}/files/sharedLink",
+            json=_omit_none(
+                {
+                    "name": name,
+                    "fileIDs": file_ids,
+                    "types": types,
+                    "configMap": config_map,
+                }
+            ),
+        )
 
-    def create(self, project_id: str, payload: dict):
-        return self.client.post(f"projects/{project_id}/sharedLinks", json=payload)
+    def create_static(
+        self,
+        project_id: str,
+        branch_id: str,
+        file_id: str,
+        version_id: str,
+        payload: dict | None = None,
+    ):
+        return self.client.post(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/fileVersion/{version_id}/sharedLink",
+            json=payload or {},
+        )
 
-    def update(self, project_id: str, link_id: str, payload: dict):
-        return self.client.put(f"projects/{project_id}/sharedLinks/{link_id}", json=payload)
+    def refresh(self, project_id: str, branch_id: str, link_id: str):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/sharedLinks/{link_id}/refresh"
+        )
+
+    def delete(self, project_id: str, branch_id: str, link_ids: list[str]):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/sharedLinks/delete",
+            json={"sharedLinkIDs": link_ids},
+        )
 
 
-class FilesMoveDeleteAPI(_BaseAPI):
-    def move(self, project_id: str, branch_id: str, payload: dict):
-        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/move", json=payload)
-
-    def delete_many(self, project_id: str, branch_id: str, payload: dict):
-        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/delete", json=payload)
-
-
-class FilesMetadataAPI(_BaseAPI):
-    def fields(self):
+class MetadataAPI(_BaseAPI):
+    def list_fields(self):
         return self.client.get("metadataFields")
 
-    def file_metadata(self, project_id: str, branch_id: str, file_id: str):
+    def get(self, project_id: str, branch_id: str, file_id: str):
         return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/metadata")
 
-    def update_file_metadata(self, project_id: str, branch_id: str, file_id: str, payload: dict):
-        return self.client.put(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/metadata", json=payload)
+    def get_for_version(self, project_id: str, branch_id: str, file_id: str, version_id: str):
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/versions/{version_id}/metadata"
+        )
+
+    def update(self, project_id: str, branch_id: str, payload: dict):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/files/updateMetadata",
+            json=payload,
+        )
 
 
-class FeedbackItemsAPI(_BaseAPI):
-    def list(self, project_id: str):
+class FeedbackAPI(_BaseAPI):
+    def list(self, project_id: str, *, branch_id: str | None = None, file_id: str | None = None):
+        if file_id:
+            branch_id = self.client.resolve_branch_id(project_id, branch_id)
+            return self.client.get(
+                f"projects/{project_id}/branches/{branch_id}/files/{file_id}/feedbackItems"
+            )
         return self.client.get(f"projects/{project_id}/feedbackItems")
 
     def get(self, project_id: str, item_id: str):
         return self.client.get(f"projects/{project_id}/feedbackItems/{item_id}")
 
-    def create(self, project_id: str, payload: dict):
-        return self.client.post(f"projects/{project_id}/feedbackItems", json=payload)
-
     def update(self, project_id: str, item_id: str, payload: dict):
         return self.client.put(f"projects/{project_id}/feedbackItems/{item_id}", json=payload)
 
-    def delete(self, project_id: str, item_id: str):
-        return self.client.delete(f"projects/{project_id}/feedbackItems/{item_id}")
+    def initiate_attachment(self, project_id: str, item_id: str, payload: dict):
+        return self.client.put(
+            f"projects/{project_id}/feedbackItems/{item_id}/attachment",
+            json=payload,
+        )
+
+    def complete_attachment(
+        self,
+        project_id: str,
+        item_id: str,
+        attachment_id: str,
+        payload: dict | None = None,
+    ):
+        return self.client.post(
+            f"projects/{project_id}/feedbackItems/{item_id}/attachment/{attachment_id}",
+            json=payload or {},
+        )
+
+    def delete_attachment(self, project_id: str, item_id: str, attachment_id: str):
+        return self.client.delete(
+            f"projects/{project_id}/feedbackItems/{item_id}/attachment/{attachment_id}"
+        )
 
 
 class PackagesAPI(_BaseAPI):
-    def list(self, project_id: str):
-        return self.client.get(f"projects/{project_id}/packages")
+    def list(self, project_id: str | None = None):
+        if project_id:
+            return self.client.get(f"projects/{project_id}/packages")
+        return self.client.get("packages")
 
     def get(self, project_id: str, package_id: str):
         return self.client.get(f"projects/{project_id}/packages/{package_id}")
 
 
 class RevisionsAPI(_BaseAPI):
-    def list(self, project_id: str, branch_id: str, file_id: str):
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions")
+    def list(
+        self,
+        project_id: str | None = None,
+        branch_id: str | None = None,
+        file_id: str | None = None,
+    ):
+        if file_id:
+            if not project_id or not branch_id:
+                raise ValueError("project_id and branch_id are required when listing file revisions")
+            return self.client.get(
+                f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions"
+            )
+        if branch_id:
+            if not project_id:
+                raise ValueError("project_id is required when listing branch revisions")
+            return self.client.get(f"projects/{project_id}/branches/{branch_id}/revisions")
+        if project_id:
+            return self.client.get(f"projects/{project_id}/revisions")
+        return self.client.get("revisions")
 
     def get(self, project_id: str, branch_id: str, file_id: str, revision_id: str):
-        return self.client.get(f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions/{revision_id}")
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions/{revision_id}"
+        )
 
-    def restore(self, project_id: str, branch_id: str, file_id: str, revision_id: str, payload: dict | None = None):
+    def get_closure(self, project_id: str, branch_id: str, file_id: str):
+        return self.client.get(
+            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/closure"
+        )
+
+    def release(self, project_id: str, branch_id: str, revisions: list[dict]):
         return self.client.put(
-            f"projects/{project_id}/branches/{branch_id}/files/{file_id}/revisions/{revision_id}/restore",
-            json=payload or {},
+            f"projects/{project_id}/branches/{branch_id}/revisions/release",
+            json=revisions,
+        )
+
+    def cancel(self, project_id: str, branch_id: str, revision_ids: list[str]):
+        return self.client.put(
+            f"projects/{project_id}/branches/{branch_id}/revisions/cancel",
+            json={"revisionIDs": revision_ids},
         )
 
 
 class ApprovalsAPI(_BaseAPI):
-    def list(self, project_id: str):
-        return self.client.get(f"projects/{project_id}/approvals")
+    def list(self, project_id: str | None = None):
+        if project_id:
+            return self.client.get(f"projects/{project_id}/approvals")
+        return self.client.get("approvals")
 
     def get(self, project_id: str, approval_id: str):
         return self.client.get(f"projects/{project_id}/approvals/{approval_id}")
 
-    def update(self, project_id: str, approval_id: str, payload: dict):
-        return self.client.put(f"projects/{project_id}/approvals/{approval_id}", json=payload)
+    def close(self, project_id: str, approval_id: str, status: str):
+        return self.client.put(
+            f"projects/{project_id}/approvals/{approval_id}/close",
+            params={"status": status},
+        )
 
 
 class BOMsAPI(_BaseAPI):
-    def list(self, project_id: str):
-        return self.client.get(f"projects/{project_id}/boms")
+    def list(self, project_id: str, branch_id: str):
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/boms")
 
-    def get(self, project_id: str, bom_id: str):
-        return self.client.get(f"projects/{project_id}/boms/{bom_id}")
+    def get(self, project_id: str, branch_id: str, bom_id: str):
+        return self.client.get(f"projects/{project_id}/branches/{branch_id}/boms/{bom_id}")
 
-    def create(self, project_id: str, payload: dict):
-        return self.client.post(f"projects/{project_id}/boms", json=payload)
+    def download(self, project_id: str, branch_id: str, bom_id: str, payload: dict):
+        return self.client.post(
+            f"projects/{project_id}/branches/{branch_id}/boms/{bom_id}/download",
+            json=payload,
+        )
 
 
 class SearchAPI(_BaseAPI):
-    def query(self, payload: dict):
-        return self.client.put("search", json=payload)
+    def files(
+        self,
+        search_key: str,
+        *,
+        page_size: int | None = None,
+        from_offset: int | None = None,
+    ):
+        return self.client.put(
+            "search",
+            json={"search_key": search_key},
+            params=_omit_none({"pageSize": page_size, "from": from_offset}) or None,
+        )
+
+
+class WebhooksAPI(_BaseAPI):
+    def list(self):
+        return self.client.get("webhooks/subscriptions")
+
+    def create(self, payload: dict):
+        return self.client.post("webhooks/subscriptions", json=payload)
+
+    def get(self, subscription_id: str):
+        return self.client.get(f"webhooks/subscriptions/{subscription_id}")
+
+    def update(self, subscription_id: str, payload: dict):
+        return self.client.put(f"webhooks/subscriptions/{subscription_id}", json=payload)
+
+    def delete(self, subscription_id: str):
+        return self.client.delete(f"webhooks/subscriptions/{subscription_id}")
+
+    def rotate_secret(self, subscription_id: str):
+        return self.client.post(f"webhooks/subscriptions/{subscription_id}/rotate")
+
+
+def _omit_none(data: dict) -> dict:
+    return {key: value for key, value in data.items() if value is not None}
 
 
 def _pick_from_response(payload: Any, *keys: str):
