@@ -24,6 +24,7 @@ The package is not on PyPI yet.
 | Reliability | [docs/RELIABILITY.md](docs/RELIABILITY.md) |
 | Full catalog | [docs/INDEX.md](docs/INDEX.md) |
 | End-user agent setup | [AGENT_SETUP.md](AGENT_SETUP.md) |
+| End-user agent usage | [AGENT_USAGE.md](AGENT_USAGE.md) |
 
 ## Layout
 

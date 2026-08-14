@@ -1,8 +1,10 @@
 # Bild Python — agent setup playbook
 
 You are an agent setting up the **Bild Python SDK** for a human. This file is
-the only document you need. Follow it in order. Do not declare success until
-the handshake at the end returns a value.
+the only document you need for **install and verify**. After a successful
+handshake, open [AGENT_USAGE.md](AGENT_USAGE.md) for day-to-day calls.
+Follow this file in order. Do not declare success until the handshake at
+the end returns a value.
 
 Bild is a PDM/PLM product. This library talks to `https://api.getbild.com`
 using a JWT personal access token. The package is used from source (not on
@@ -152,6 +154,18 @@ Do not declare setup complete without a successful `verify()` return value.
 ## After setup
 
 You may keep using the same `BildClient()` for the human's next request.
+Open [AGENT_USAGE.md](AGENT_USAGE.md) before guessing IDs or routes.
+
+**Default branch:** do not look for a branch named `main` or `master`.
+Bild names are often the project name. Call:
+
+```python
+branch_id = client.resolve_branch_id(project_id)
+```
+
+Or pass `branch_id=None` on branch-scoped methods. The helper lists
+`GET /projects/{id}/branches` and picks the flagged default, else the
+first branch.
 
 Documented groups: `users`, `projects`, `project_users`, `branches`,
 `commits`, `files`, `uploads`, `checkouts`, `shared_links`, `metadata`,

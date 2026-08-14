@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | current | Layers, HTTP contract, test map |
 | [../AGENT_SETUP.md](../AGENT_SETUP.md) | current | Playbook to hand another agent for end-user install + `verify()` |
+| [../AGENT_USAGE.md](../AGENT_USAGE.md) | current | Playbook for agents calling the SDK after setup (branches, IDs, writes) |
 | [PRODUCT.md](PRODUCT.md) | current | Who the SDK is for and what "done" means |
 | [DESIGN.md](DESIGN.md) | current | Design principles and taste |
 | [CONVENTIONS.md](CONVENTIONS.md) | current | Naming, files, errors, JSON |
